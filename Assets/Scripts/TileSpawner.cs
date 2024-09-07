@@ -27,8 +27,8 @@ namespace EternalRunner
 
         private Vector3 startingTileOffset = new Vector3(0.0f, -0.075f, 4.8f);
 
-        private Vector3 nextTileLocation = Vector3.zero;
-        private Vector3 nextTileDirection = Vector3.forward;
+        private Vector3 currentTileLocation = Vector3.zero;
+        private Vector3 currentTileDirection = Vector3.forward;
         private GameObject previousTile;
 
         private List<GameObject> tilesUsedCurrentlyList;
@@ -41,26 +41,63 @@ namespace EternalRunner
 
             Random.InitState(System.DateTime.Now.Millisecond);
 
-            if (nextTileLocation == Vector3.zero)
-                nextTileLocation += startingTileOffset;
+            if (currentTileLocation == Vector3.zero)
+                currentTileLocation += startingTileOffset;
 
             for (int i = 0; i < tileStartCount; i++)
                 SpawnNewTile(startingTile.GetComponent<Tile>());
 
-            SpawnNewTile(SelectRandomTurnTileFromList(turnTilesList).GetComponent<Tile>());
+            //SpawnNewTile(SelectRandomTurnTileFromList(turnTilesList).GetComponent<Tile>());
+
+            SpawnNewTile(turnTilesList[0].GetComponent<Tile>());
+
+            UpdateNewTileDirection(Vector3.left);
         }
 
         private void SpawnNewTile(Tile tileToBeSpawned, bool spawnObstacle = false)
         {
-            Quaternion newTileRotation = tileToBeSpawned.gameObject.transform.rotation * Quaternion.LookRotation(nextTileDirection, Vector3.up);
+            Quaternion newTileRotation = tileToBeSpawned.gameObject.transform.rotation * Quaternion.LookRotation(currentTileDirection, Vector3.up);
 
-            previousTile = GameObject.Instantiate(tileToBeSpawned.gameObject, nextTileLocation, newTileRotation);
+            previousTile = GameObject.Instantiate(tileToBeSpawned.gameObject, currentTileLocation, newTileRotation);
 
             tilesUsedCurrentlyList.Add(previousTile);
 
-            nextTileLocation += Vector3.Scale(previousTile.GetComponent<Renderer>().bounds.size, nextTileDirection);
+            if(previousTile.GetComponent<Tile>().type == TileType.STRAIGHT)
+                currentTileLocation += Vector3.Scale(previousTile.GetComponent<Renderer>().bounds.size, currentTileDirection);
         }
 
+        private void DeletePreviousTiles()
+        {
+
+        }
+
+        public void UpdateNewTileDirection(Vector3 direction)
+        {
+            currentTileDirection = direction;
+            DeletePreviousTiles();
+
+            Vector3 nextTileLocationOffset;
+
+            if(previousTile.GetComponent<Tile>().type == TileType.SIDEWAYS)
+            {
+                nextTileLocationOffset = Vector3.Scale(previousTile.GetComponent<Renderer>().bounds.size / 2 
+                    + (Vector3.one * startingTile.GetComponent<BoxCollider>().size.z / 2), currentTileDirection);
+            }
+            else //Left/Right Turn Tiles
+            {
+                nextTileLocationOffset = Vector3.Scale((previousTile.GetComponent<Renderer>().bounds.size - (Vector3.one * 2))
+                    + (Vector3.one * startingTile.GetComponent<BoxCollider>().size.z / 2), currentTileDirection);
+            }
+
+            currentTileLocation += nextTileLocationOffset;
+
+            int totalPathLength = Random.Range(minimumStraightTiles, maximumStraightTiles);
+
+            for(int i = 0; i < totalPathLength; i++) 
+                SpawnNewTile(startingTile.GetComponent<Tile>(), (i == 0) ? false : true);
+
+            SpawnNewTile(SelectRandomTurnTileFromList(turnTilesList).GetComponent<Tile>());
+        }
         private GameObject SelectRandomTurnTileFromList(List<GameObject> turnTileList)
         {
             if (turnTileList.Count == 0)
