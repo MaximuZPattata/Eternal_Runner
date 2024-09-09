@@ -61,6 +61,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Scripts\TileSpawner.cs" />
+    <Compile Include="Assets\Scripts\PlayerControl.cs" />
     <Compile Include="Assets\TempleRunPrefabs\Tile.cs" />
   </ItemGroup>
   <ItemGroup>
