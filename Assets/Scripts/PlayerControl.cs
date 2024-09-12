@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.InputSystem;
 
 namespace EternalRunner
@@ -25,13 +26,37 @@ namespace EternalRunner
         private float initialGravity = -9.81f;
 
         [SerializeField]
+        private float scoreMultiplier = 10f;
+
+        [SerializeField]
         private LayerMask groundLayer;
         
         [SerializeField]
         private LayerMask turnLayer;
 
+        [SerializeField]
+        private LayerMask obstacleLayer;
+
+        [SerializeField]
+        private UnityEvent<Vector3> turnEvent;
+
+        [SerializeField]
+        private UnityEvent<int> gameOverEvent;
+
+        [SerializeField]
+        private UnityEvent<int> scoreUpdateEvent;
+
+        [SerializeField]
+        private Animator animator;
+
+        [SerializeField]
+        private AnimationClip slideAnimationClip;
+
+        private int slidingAnimationId;
+        private float score = 0f;
         private float playerCurrentSpeed;
         private float gravity;
+        private bool playerCurrentlySliding = false;
         private Vector3 playerCurrentDirection = Vector3.forward;
         private Vector3 playerVelocity;
 
@@ -50,6 +75,9 @@ namespace EternalRunner
         {
             playerInput = GetComponent<PlayerInput>();
             characterController = GetComponent<CharacterController>();
+
+            slidingAnimationId = Animator.StringToHash("Player_Basic_Slide");
+
             turnAction = playerInput.actions["Turn"];
             jumpAction = playerInput.actions["Jump"];
             slideAction = playerInput.actions["Slide"];
@@ -77,11 +105,35 @@ namespace EternalRunner
 
         private void PlayerTurn(InputAction.CallbackContext context)
         {
-            context.ReadValue<float>();
+            Vector3? turnPosition = CheckTurnPosition(context.ReadValue<float>());
 
+            if (!turnPosition.HasValue)
+            {
+                GameOver();
+
+                return;
+            }
+
+            Vector3 targetDirection = Quaternion.AngleAxis(90 * context.ReadValue<float>(), Vector3.up) * playerCurrentDirection;
+
+            turnEvent.Invoke(targetDirection);
+
+            RotatePlayer(context.ReadValue<float>(), turnPosition.Value);
         }
 
-        private Vector3? CheckTurnSide(float turnValue)
+        private void RotatePlayer(float turnValue, Vector3 targetPositionWherePlayerTurns)
+        {
+            Vector3 tempPlayerPosition = new Vector3(targetPositionWherePlayerTurns.x, transform.position.y, targetPositionWherePlayerTurns.z);
+            characterController.enabled = false;
+            transform.position = tempPlayerPosition;
+            characterController.enabled = true;
+
+            Quaternion targetRotation = transform.rotation * Quaternion.Euler(0, 90*turnValue, 0);
+            transform.rotation = targetRotation;
+            playerCurrentDirection = transform.forward.normalized;
+        }
+
+        private Vector3? CheckTurnPosition(float turnValue)
         {
             Collider[] hitColliders = Physics.OverlapSphere(transform.position, .1f, turnLayer);
 
@@ -109,11 +161,45 @@ namespace EternalRunner
 
         private void PlayerSlide(InputAction.CallbackContext context)
         {
+            if(!playerCurrentlySliding && IsGrounded())
+                StartCoroutine(Slide());
+        }
 
+        private IEnumerator Slide()
+        {
+            playerCurrentlySliding = true;
+
+            // Shrinking controller
+            Vector3 originalControllerCenter = characterController.center;
+            Vector3 newControllerCenter = originalControllerCenter;
+            
+            characterController.height /= 2;    
+            newControllerCenter.y -= characterController.height/2;
+            characterController.center = newControllerCenter;
+
+            // Playing animation
+            animator.Play(slidingAnimationId);
+            yield return new WaitForSeconds(slideAnimationClip.length);
+
+            // Reset Controller
+            characterController.height *= 2;
+            characterController.center = originalControllerCenter;
+
+            playerCurrentlySliding = false;
         }
 
         private void Update()
         {
+            if (!IsGrounded(20f))
+            {
+                GameOver();
+
+                return;
+            }
+
+            score += scoreMultiplier * Time.deltaTime;
+            scoreUpdateEvent.Invoke((int)score);
+
             characterController.Move(transform.forward * playerCurrentSpeed * Time.deltaTime);
 
             if (IsGrounded() && playerVelocity.y < 0)
@@ -140,8 +226,8 @@ namespace EternalRunner
             firstRaycastOrigin -= transform.forward * offsetFromControllerPos;
             secondRaycastOrigin += transform.forward * offsetFromControllerPos;
 
-            Debug.DrawLine(firstRaycastOrigin, Vector3.down, Color.green, 2f);
-            Debug.DrawLine(secondRaycastOrigin, Vector3.down, Color.red, 2f);
+            //Debug.DrawLine(firstRaycastOrigin, Vector3.down, Color.green, 2f);
+            //Debug.DrawLine(secondRaycastOrigin, Vector3.down, Color.red, 2f);
 
             if (Physics.Raycast(firstRaycastOrigin, Vector3.down, out RaycastHit hit1, length, groundLayer) ||
                 Physics.Raycast(secondRaycastOrigin, Vector3.down, out RaycastHit hit2, length, groundLayer))
@@ -150,8 +236,21 @@ namespace EternalRunner
                 return false;
         }
 
-        #endregion
+        private void GameOver()
+        {
+            gameOverEvent.Invoke((int)score);
+            gameObject.SetActive(false);
+        }
 
+        private void OnControllerColliderHit(ControllerColliderHit hit)
+        {
+            if (((1 << hit.collider.gameObject.layer) & obstacleLayer) != 0)
+                GameOver();
+
+            //if (hit.collider.gameObject.layer == obstacleLayer)
+            //    GameOver();
+        }
+        #endregion
 
     }
 }

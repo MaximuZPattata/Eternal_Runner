@@ -63,6 +63,7 @@
     <Compile Include="Assets\Scripts\TileSpawner.cs" />
     <Compile Include="Assets\Scripts\PlayerControl.cs" />
     <Compile Include="Assets\TempleRunPrefabs\Tile.cs" />
+    <Compile Include="Assets\Scripts\GameOver.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\SkyBox\Free Stylized Skybox\ReadMe.txt" />
