@@ -2,19 +2,27 @@ using System.Collections;
 using UnityEngine;
 using LootLocker.Requests;
 using TMPro;
+using UnityEngine.SceneManagement;
+using Unity.VisualScripting;
 
 public class GameOver : MonoBehaviour
 {
     #region Defining local variables
 
     [SerializeField]
-    private GameObject gameOverCanvas;
-
-    [SerializeField]
     private TMP_InputField inputField;
 
+    [SerializeField]
+    private TextMeshProUGUI leaderboardScoreText;
+
+    [SerializeField]
+    private TextMeshProUGUI leaderboardNameText;
+
+    [SerializeField]
+    private TextMeshProUGUI scoreText;
+
     private int score = 0;
-    private int leaderboardId = 24551;
+    private string leaderboardId = "24551";
     private int leaderboardTopCount = 10;
 
     #endregion
@@ -25,16 +33,15 @@ public class GameOver : MonoBehaviour
     {
         //Time.timeScale = 0f;
 
-        gameOverCanvas.SetActive(true);
-
         this.score = score;
+        scoreText.text = "Score : " + score.ToString();
 
-        SubmitScore();
+        GetLeaderboard();
     }
 
     public void RestartGame()
     {
-
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
     public void SubmitScore()
@@ -78,10 +85,11 @@ public class GameOver : MonoBehaviour
 
         bool? scoreSubmitted = null;
 
-        LootLockerSDKManager.SubmitScore("", score, leaderboardId.ToString(), (response) =>
+        LootLockerSDKManager.SubmitScore("", score, leaderboardId, (response) =>
         {
             if (response.success)
             {
+                Debug.Log("DEBUG : Score - " + score + " | LeaderboardId - " + leaderboardId);
                 Debug.Log("SUCCESS : Score submitted to the leaderboard");
 
                 scoreSubmitted = true;
@@ -104,7 +112,47 @@ public class GameOver : MonoBehaviour
 
     private void GetLeaderboard()
     {
+        LootLockerSDKManager.GetScoreList(leaderboardId, leaderboardTopCount, (response) =>
+        {
+            if (response.success)
+            {                
+                if (response.items != null)
+                {
+                    string leaderboardName = "";
+                    string leaderboardScore = "";
 
+                    LootLockerLeaderboardMember[] members = response.items;
+
+                    Debug.Log("inside condition");
+
+                    for (int i = 0; i < members.Length; i++)
+                    {
+                        Debug.Log("DEBUG : Fetching player " + i);
+
+                        LootLockerPlayer currentPlayer = members[i].player;
+
+                        if (currentPlayer == null)
+                            continue;
+
+                        if (currentPlayer.name != "")
+                            leaderboardName += currentPlayer.name + "\n";
+                        else
+                            leaderboardName += currentPlayer.id + "\n";
+
+                        leaderboardScore += members[i].score + "\n";
+                    }
+
+                    leaderboardNameText.SetText(leaderboardName);
+                    leaderboardScoreText.SetText(leaderboardScore);
+
+                    Debug.Log("SUCCESS : Scores retrieved from leaderboard");
+                }
+                else
+                    Debug.Log("SUCCESS : No scores stored in leaderboard");
+            }
+            else
+                Debug.Log("ERROR : Unable to get scores from leaderboard");
+        });
     }
 
     #endregion
