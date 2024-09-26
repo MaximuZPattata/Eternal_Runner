@@ -72,7 +72,7 @@ namespace EternalRunner
 
         private void SpawnObstacles()
         {
-            if (Random.value > 0.2f) 
+            if (Random.value > 0.4f) 
                 return;
 
             GameObject obstacleGameObject = SelectRandomGameObjectFromList(allObstaclesList);

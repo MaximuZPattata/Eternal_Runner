@@ -179,7 +179,7 @@ namespace EternalRunner
 
             // Playing animation
             animator.Play(slidingAnimationId);
-            yield return new WaitForSeconds(slideAnimationClip.length);
+            yield return new WaitForSeconds(slideAnimationClip.length / animator.speed);
 
             // Reset Controller
             characterController.height *= 2;
@@ -208,6 +208,15 @@ namespace EternalRunner
             playerVelocity.y += gravity * Time.deltaTime;
 
             characterController.Move(playerVelocity * Time.deltaTime);
+
+            if (playerCurrentSpeed < maximumPlayerSpeed)
+            {
+                playerCurrentSpeed += Time.deltaTime * playerAcceleration;
+                gravity = initialGravity - playerCurrentSpeed;
+
+                if(animator.speed < 1.25f)
+                    animator.speed += (1 / playerCurrentSpeed) * Time.deltaTime;
+            }
         }
 
         private bool IsGrounded(float length = 0.2f)
